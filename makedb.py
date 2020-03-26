@@ -55,7 +55,7 @@ def make_db(company_code):
     # db에 입력하는 부분
     # con = sqlite3.connect('fs_is.db')
     # financial_statement[0].to_sql('fs_is.db', con, if_exists='append')
-    # # todo 1. 컬럼명 '전년대비(YoY)'가 두개임....충돌발생으로 인하여 입력이 되지 않음
+    # todo 1. 컬럼명 '전년대비(YoY)'가 두개임....충돌발생으로 인하여 입력이 되지 않음
     chrome.close()
 
 
