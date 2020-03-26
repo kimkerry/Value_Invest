@@ -1,75 +1,82 @@
 from selenium import webdriver
-import time
 from bs4 import BeautifulSoup
-from IPython.display import display_html
+import time
 import pandas as pd
-import re
 import sqlite3
 
 
-def make_db():
-    # todo 4. get_code 함수의 리턴값을 받아서 for 문을 돌려 각각의 상장코드별로 path에 넣어줘야 함
-    path = 'https://navercomp.wisereport.co.kr/v2/company/c1030001.aspx?cmp_cd=005930&cn='
+def make_db(company_code):
+    def crawling(click, order=0):
+        chrome.find_element_by_xpath(click).click()
+        time.sleep(5)
+        soup = BeautifulSoup(chrome.page_source, 'html.parser')
+        html = soup.find_all('table', {'class': 'gHead01 all-width data-list'})
+        table_value = []
+        head_value = []
+        for i in html[order].find_all('tr'):
+            for h in i.find_all('th'):
+                head_value.append(h.get_text())
+            value = []
+            for ii in i.find_all('td'):
+                value.append(ii.get_text())
+            table_value.append(value)
+
+        df = pd.DataFrame(data=table_value, columns=head_value)
+        df.columns = df.columns.str.replace(r'\n', '')
+        df = df.replace(r'[\t\n]', '', regex=True)
+        df = df.replace(r'펼치기', '', regex=True)
+        df = df.set_index(['항목'])
+        return (df)
+
     chrome = webdriver.Chrome()
-    chrome.get(path)
 
-    chrome.find_element_by_xpath('//*[@id="rpt_td1"]').click()
-    time.sleep(5)
-    html_is = chrome.page_source
-    soup_is = BeautifulSoup(html_is, 'html.parser')
-    html_fs_is = soup_is.find('table', {'class': 'gHead01 all-width data-list'})
-    table_value = []
-    head_value =[]
-    for i in html_fs_is.find_all('tr'):
-        for h in i.find_all('th'):
-            head_value.append(h.get_text())
-        value = []
-        for ii in i.find_all('td'):
-            value.append(ii.get_text())
-        table_value.append(value)
-    df_fs_is = pd.DataFrame(data = table_value, columns = head_value)
-    df_fs_is.replace(['\t','\n'],'')
+    # 크롬 열기 종목코드의 재무분석 페이지
+    path_fs = 'https://navercomp.wisereport.co.kr/v2/company/c1030001.aspx?cmp_cd='+company_code+'&cn='
+    chrome.get(path_fs)
+    financial_statement = []
+    # 손익계산서 //*[@id="rpt_td1"], 재무상태표 //*[@id="rpt_td2"] 현금흐름표 //*[@id="rpt_td3"]
+    rpt_button = ['//*[@id="rpt_td1"]', '//*[@id="rpt_td2"]', '//*[@id="rpt_td3"]']
+    for click in rpt_button:
+        financial_statement.append(crawling(click))
 
-    # df_fs_is = df_fs_is.set_index(df_fs_is.iloc[:,0], drop=True)
+    # 크롬 열기 종목코드의 투자지표 페이지
+    path_ii ='https://navercomp.wisereport.co.kr/v2/company/c1040001.aspx?cmp_cd='+company_code+'&cn='
+    chrome.get(path_ii)
+    invest_index = []
+    # 수익성 //*[@id="val_td1"], 성장성//*[@id="val_td2"], 안정성//*[@id="val_td3"], 활동성//*[@id="val_td4"]
+    # 가치분석 // *[ @ id = "viVGVTbkwxZ2"] / table[2]
+    val_button = ['//*[@id="val_td1"]', '//*[@id="val_td2"]', '//*[@id="val_td3"]', '//*[@id="val_td4"]', '// *[ @ id = "viVGVTbkwxZ2"] / table[2]']
+    for click in val_button:
+        if click=='// *[ @ id = "viVGVTbkwxZ2"] / table[2]':
+            invest_index.append(crawling(click,order=1))
+        else:
+            invest_index.append(crawling(click))
 
-    # df_fs_is = df_fs_is.str.replace(pat=r'[\s\s+]', repl = r' ', regex = True)
-    # df_fs_is = df_fs_is[0]
-    # todo 1. 표의 펼치기 부분은 데이터프레임으로 들어가지 않음 -> 데이타는 있음에도 불구하고 아마도 컬럼명이 하나라서 맨 앞의것만 나오는거 같음
-
-    # chrome.find_element_by_xpath('//*[@id="rpt_td2"]').click()
-    # time.sleep(5)
-    # html_bs = chrome.page_source
-    # soup_bs = BeautifulSoup(html_bs, 'html.parser')
-    # fs_bs = soup_bs.find('table', {'class': 'gHead01 all-width data-list'})
-    # todo 2. 1번 todo를 완성하고 나서 여기랑 밑에도 같이 수정해야 함
-
-    # chrome.find_element_by_xpath('//*[@id="rpt_td3"]').click()
-    # time.sleep(5)
-    # html_cf = chrome.page_source
-    # soup_cf = BeautifulSoup(html_cf, 'html.parser')
-    # fs_cf = soup_cf.find('table', {'class': 'gHead01 all-width data-list'})
-
-
+    # db에 입력하는 부분
+    # con = sqlite3.connect('fs_is.db')
+    # financial_statement[0].to_sql('fs_is.db', con, if_exists='append')
+    # # todo 1. 컬럼명 '전년대비(YoY)'가 두개임....충돌발생으로 인하여 입력이 되지 않음
     chrome.close()
 
-    # con = sqlite3.connect('./fs_is.db')
-    # cur = con.cursor()
-    # for i in code_df.code:
-    #     tablename = 'CREATE TABLE "' + i +'"'
-    #     cur.execute(tablename+' (name text)')
-    # todo 3. is, bs, cf별로 DB를 만든 후 상장코드 별로 table을 만들고 값을 넣어줘야 함
 
 
     # 여기는 테스트 부분임
-    print(df_fs_is.head(20))
+    # print(financial_statement[0].head(10))
+    # print(financial_statement[1].head(10))
+    # print(financial_statement[2].head(10))
     # print('______________________________________________________________________________________________________________________________________________________________________________________')
-    # print(fs_bs)
+    # print(invest_index[0].head(10))
     # print('______________________________________________________________________________________________________________________________________________________________________________________')
-    # print(fs_cf)
-
+    # print(invest_index[1].head(10))
+    # print('______________________________________________________________________________________________________________________________________________________________________________________')
+    # print(invest_index[2].head(10))
+    # print('______________________________________________________________________________________________________________________________________________________________________________________')
+    # print(invest_index[3].head(10))
+    # print('______________________________________________________________________________________________________________________________________________________________________________________')
+    # print(invest_index[4].head(10))
 
 
 
 
 if __name__ == '__main__':
-    make_db()
+    make_db('005930')

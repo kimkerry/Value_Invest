@@ -2,9 +2,9 @@ import getcode
 import makedb
 
 def value_invest():
-    company_name = getcode.get_code()
+    company_code = getcode.get_code()
     # 유가증권시장 상장 코드 및 회사명 가져오기
-    makedb(company_name)
+    makedb(company_code)
     # 상장회사의 최근 5년간 재무정보를 DB화 하기
     # magic_formular()
     # 마법공식 자료 가져오기
